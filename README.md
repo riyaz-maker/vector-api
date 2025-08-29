@@ -1,6 +1,8 @@
-# Vector API — README
+# Vector API
 
-Last updated: 2025-08-29
+ [Watch the Demonstration Video](https://www.loom.com/share/990ff76539a646c392b114fa87ed7d9a?sid=175b8134-b054-4437-b8d6-e0834e8ca1ee)
+
+ [Watch the Video on Design Choices](https://www.loom.com/share/19fbfe8575b84868af43997dc3d73a17?sid=6b4e3307-8da1-4402-a72c-e164fd24b046)
 
 This README explains what this project does, the architectural choices, the indexing algorithms implemented, their complexity and trade-offs, and how to run the system locally (including a one-shot init that populates a demo database).
 

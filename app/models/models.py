@@ -7,15 +7,21 @@ class ChunkMetadata(BaseModel):
     source: Optional[str] = None
     created_at: Optional[datetime] = None
     document_id: Optional[str] = None
+    # Allow arbitrary extra metadata (e.g. page numbers) to be accepted and preserved
+    model_config = {"extra": "allow"}
 
 class DocumentMetadata(BaseModel):
     source: Optional[str] = None
     author: Optional[str] = None
     created_at: Optional[datetime] = None
+    # Allow arbitrary extra metadata fields
+    model_config = {"extra": "allow"}
 
 class LibraryMetadata(BaseModel):
     description: Optional[str] = None
     created_at: Optional[datetime] = None
+    # Allow arbitrary extra metadata fields
+    model_config = {"extra": "allow"}
 
 class LibraryBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
@@ -71,4 +77,3 @@ class SearchRequest(BaseModel):
 class SearchResult(BaseModel):
     chunk: Chunk
     score: float
-    

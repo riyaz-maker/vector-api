@@ -28,11 +28,24 @@ class BaseIndex(ABC):
     def save_index(self, file_path: str) -> bool:
         try:
             with open(file_path, 'wb') as f:
-                pickle.dump({
+                # Persist full index state
+                state = {
                     'index': self.index,
                     'vectors': self.vectors,
                     'built': self.built
-                }, f)
+                }
+                # If index implementation exposes extra attributes, include them
+                if hasattr(self, 'levels'):
+                    state['levels'] = getattr(self, 'levels')
+                if hasattr(self, 'entry_point'):
+                    state['entry_point'] = getattr(self, 'entry_point')
+                if hasattr(self, 'M'):
+                    state['M'] = getattr(self, 'M')
+                if hasattr(self, 'ef_construction'):
+                    state['ef_construction'] = getattr(self, 'ef_construction')
+                if hasattr(self, 'ef_search'):
+                    state['ef_search'] = getattr(self, 'ef_search')
+                pickle.dump(state, f)
             logger.info(f"Index saved to {file_path}")
             return True
         except Exception as e:
@@ -43,9 +56,21 @@ class BaseIndex(ABC):
         try:
             with open(file_path, 'rb') as f:
                 data = pickle.load(f)
-                self.index = data['index']
-                self.vectors = data['vectors']
-                self.built = data['built']
+                # Load common fields
+                self.index = data.get('index')
+                self.vectors = data.get('vectors')
+                self.built = data.get('built', False)
+                # Load optional implementation specific fields if present
+                if 'levels' in data:
+                    setattr(self, 'levels', data.get('levels'))
+                if 'entry_point' in data:
+                    setattr(self, 'entry_point', data.get('entry_point'))
+                if 'M' in data:
+                    setattr(self, 'M', data.get('M'))
+                if 'ef_construction' in data:
+                    setattr(self, 'ef_construction', data.get('ef_construction'))
+                if 'ef_search' in data:
+                    setattr(self, 'ef_search', data.get('ef_search'))
             logger.info(f"Index loaded from {file_path}")
             return True
         except Exception as e:

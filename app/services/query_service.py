@@ -39,15 +39,27 @@ class QueryService:
         else:
             logger.error(f"Unsupported index type: {index_type}")
             raise ValueError(f"Unsupported index type: {index_type}")
-        
+
         # Try to load the index
         if not index.load_index(index_path):
             logger.error(f"Index not found for library: {library_id}, type: {index_type}")
             raise ValueError(f"Index not found for library: {library_id}")
-        
+
+        # Log some internals for debugging (entry_point, levels, vectors shape)
+        try:
+            entry_point = getattr(index, 'entry_point', None)
+            levels = getattr(index, 'levels', None)
+            vectors_shape = None
+            if hasattr(index, 'vectors') and index.vectors is not None:
+                vectors_shape = getattr(index, 'vectors').shape
+            logger.info(f"Index internals - entry_point: {entry_point}, levels_len: {len(levels) if levels is not None else None}, vectors_shape: {vectors_shape}")
+        except Exception as e:
+            logger.debug(f"Could not inspect index internals: {e}")
+
         # Perform search
         indices, scores = index.search(search_request.query_embedding, search_request.k)
-        
+        logger.info(f"Index returned indices: {indices}, scores: {scores}")
+
         # Get chunks for the library
         chunks, _ = self.repository.get_all_vectors(library_id)
         
@@ -67,6 +79,17 @@ class QueryService:
     
     def _matches_metadata_filter(self, chunk_metadata: Dict[str, Any], 
                                 metadata_filter: Dict[str, Any]) -> bool:
+        # Ensure chunk_metadata is a plain dict
+        try:
+            if not isinstance(chunk_metadata, dict) and hasattr(chunk_metadata, 'model_dump'):
+                chunk_metadata = chunk_metadata.model_dump()
+        except Exception:
+            # Fall back to attempting to convert via __dict__
+            try:
+                chunk_metadata = dict(getattr(chunk_metadata, '__dict__', {}) or {})
+            except Exception:
+                chunk_metadata = {}
+
         for key, filter_value in metadata_filter.items():
             # Check if key exists in chunk metadata
             if key not in chunk_metadata:

@@ -22,7 +22,9 @@ async def build_index(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to build {index_type} index for library: {library_id}"
             )
-        return {"message": f"Index building started for library: {library_id}"}
+
+        # Tests expect the response message to include 'indexing started'
+        return {"message": f"Indexing started for library: {library_id}"}
     except ValueError as e:
         logger.error(f"Value error building index: {str(e)}")
         raise HTTPException(

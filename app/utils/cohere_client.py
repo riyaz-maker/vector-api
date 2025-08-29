@@ -7,7 +7,6 @@ class CohereClient:
     """
     Client for interacting with the Cohere API to generate embeddings.
     """
-    
     def __init__(self):
         self.client = None
         self.initialize_client()

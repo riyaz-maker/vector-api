@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  init:
+    build: .
+    container_name: vector_api_init
+    entrypoint: ["sh", "-c", "python populate_db.py && python verify_data.py"]
+    volumes:
+      - ./data:/app/data
+      - ./vector_db.sqlite:/app/vector_db.sqlite
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: 'no'
+
+  web:
+    build: .
+    container_name: vector_api_web
+    depends_on:
+      - init
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./vector_db.sqlite:/app/vector_db.sqlite
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped

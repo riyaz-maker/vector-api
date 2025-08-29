@@ -13,6 +13,7 @@ class HNSWIndex(BaseIndex):
         self.ef_construction = 200
         self.ef_search = 100
         self.mL = 1.0
+        # levels is a list of dicts mapping element_id -> node info
         self.levels = []
         self.entry_point = None
     
@@ -29,7 +30,8 @@ class HNSWIndex(BaseIndex):
             # Store vectors
             self.vectors = vectors
             
-            self.levels = [[] for _ in range(self._get_max_level() + 1)]
+            # initialize levels as dicts (id -> node)
+            self.levels = [dict() for _ in range(self._get_max_level() + 1)]
             
             self._build_hnsw(vectors)
             self.built = True
@@ -54,8 +56,9 @@ class HNSWIndex(BaseIndex):
         self.entry_point = (first_id, first_level)
         for level in range(first_level + 1):
             if level >= len(self.levels):
-                self.levels.append([])
-            self.levels[level].append({"id": first_id, "neighbors": []})
+                self.levels.append(dict())
+            # store node by its element id
+            self.levels[level][first_id] = {"id": first_id, "neighbors": []}
         
         # Remaining elements
         for i in range(1, len(vectors)):
@@ -64,7 +67,7 @@ class HNSWIndex(BaseIndex):
     def _insert_element(self, element_id: int, vector: np.ndarray):
         element_level = self._get_max_level()
         while element_level >= len(self.levels):
-            self.levels.append([])
+            self.levels.append(dict())
         
         # Start from entry point
         current_level = len(self.levels) - 1
@@ -75,25 +78,29 @@ class HNSWIndex(BaseIndex):
             # Find the nearest neighbor at current level
             nearest = self._search_level(vector, current_node[0], current_level, 1)
             if nearest:
-                current_node = (nearest[0], current_level)
+                # nearest[0] is a (id, dist) tuple; extract the id
+                current_node = (nearest[0][0], current_level)
             current_level -= 1
         for level in range(min(element_level, current_level), -1, -1):
             # Find nearest neighbors at this level
             neighbors = self._search_level(vector, current_node[0], level, self.ef_construction)
             new_element = {"id": element_id, "neighbors": []}
-            
+
             # Select M nearest neighbors to connect to
             for neighbor_id, _ in neighbors[:self.M]:
                 # Add bidirectional links
                 new_element["neighbors"].append(neighbor_id)
-                self.levels[level][neighbor_id]["neighbors"].append(element_id)
-            self.levels[level].append(new_element)
+                # Ensure neighbor exists at this level before appending
+                if neighbor_id in self.levels[level]:
+                    self.levels[level][neighbor_id]["neighbors"].append(element_id)
+            # Add the new node into the level mapping
+            self.levels[level][element_id] = new_element
             for neighbor_id, _ in neighbors:
-                if len(self.levels[level][neighbor_id]["neighbors"]) > self.M:
+                if neighbor_id in self.levels[level] and len(self.levels[level][neighbor_id]["neighbors"]) > self.M:
                     self._reduce_connections(neighbor_id, level)
     
     def _search_level(self, query: np.ndarray, entry_id: int, level: int, ef: int) -> List[Tuple[int, float]]:
-        if level >= len(self.levels) or entry_id >= len(self.levels[level]):
+        if level >= len(self.levels) or entry_id not in self.levels[level]:
             return []
         visited = set([entry_id])
         candidates = [(self.l2_distance(query, self.vectors[entry_id]), entry_id)]
@@ -117,7 +124,7 @@ class HNSWIndex(BaseIndex):
         return [(id, dist) for id, dist in results]
     
     def _reduce_connections(self, element_id: int, level: int):
-        if level >= len(self.levels) or element_id >= len(self.levels[level]):
+        if level >= len(self.levels) or element_id not in self.levels[level]:
             return
         element = self.levels[level][element_id]
         if len(element["neighbors"]) <= self.M:
@@ -127,7 +134,7 @@ class HNSWIndex(BaseIndex):
             dist = self.l2_distance(self.vectors[element_id], self.vectors[neighbor_id])
             neighbors_with_dist.append((neighbor_id, dist))
         
-        # Keep only M nearest neighbors
+    # Keep only M nearest neighbors
         neighbors_with_dist.sort(key=lambda x: x[1])
         element["neighbors"] = [id for id, _ in neighbors_with_dist[:self.M]]
     
